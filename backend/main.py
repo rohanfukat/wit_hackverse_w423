@@ -3,8 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from model import course_details
 from typing import List
 from google import genai
+from db import mapping_collection
 import os,json
 from dotenv import load_dotenv
+from model import course_details, course_outcome, user_registration, user_login, course_mapping_data
+
 
 load_dotenv()  # Load .env file
 
@@ -76,3 +79,20 @@ Output format:[
       print("Raw output:", input_string)
       
     return json_data
+
+@app.post("/save_co-po_mapping")
+async def register(course_mappings: List[course_outcome]):
+    inserted_ids = []
+    documents = []
+
+    for course_mapping in course_mappings:
+        documents.append(course_mapping.model_dump())
+
+    if documents:
+        result = await mapping_collection.insert_many(documents)
+        inserted_ids = [str(id) for id in result.inserted_ids] #convert objectIds to strings.
+        print(f"Data added : {inserted_ids}")
+    else:
+        print("No data was provided to insert")
+
+    return {"Data Added": inserted_ids}
