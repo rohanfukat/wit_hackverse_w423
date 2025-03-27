@@ -10,7 +10,7 @@ load_dotenv()  # Load .env file
 SECRET_KEY = os.getenv("API_KEY")
 app = FastAPI()
 
-client = genai.Client(api_key="AIzaSyC4ifEOXDvnXfNmvFJj2goGl6RcaYt6t6k")
+client = genai.Client(api_key=SECRET_KEY)
 
 
 @app.get("/test")
