@@ -10,6 +10,8 @@ const AddSubs = ({ className }) => {
   const [sem, setSem] = useState('');
   const [syllabus, setSyllabus] = useState(null);
   const [subjectList, setSubjectList] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState(null);
 
   // Handle file upload
   const handleFileUpload = (e) => {
@@ -17,26 +19,75 @@ const AddSubs = ({ className }) => {
     setSyllabus(file);
   };
 
-  // Add subject to list
-  const handleAddSubject = () => {
-    if (subjectName && sem && syllabus) {
-      const newSubject = {
-        id: Date.now(),
-        subjectName,
-        sem,
-        syllabusName: syllabus.name
-      };
+  // Add this function to show messages temporarily
+  const showMessage = (text, type = 'success') => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage(null), 3000);
+  };
 
-      setSubjectList([...subjectList, newSubject]);
-      
-      // Reset form
-      setSubjectName('');
-      setSem('');
-      setSyllabus(null);
-      
-      // Reset file input
-      if (document.getElementById('syllabus-upload')) {
-        document.getElementById('syllabus-upload').value = '';
+  // Add this function to read file as text
+  const readFileAsText = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    });
+  };
+
+  // Update the handleAddSubject function
+  const handleAddSubject = async () => {
+    if (subjectName && sem && syllabus) {
+      try {
+        setIsSubmitting(true);
+        
+        // Read the file content as text
+        const fileContent = await readFileAsText(syllabus);
+
+        // Submit the subject data with file content
+        const response = await fetch('http://127.0.0.1:8000/add-subject', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subjectName,
+            sem,
+            syllabusContent: fileContent,
+            syllabusName: syllabus.name
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add subject');
+        }
+
+        const data = await response.json();
+        
+        const newSubject = {
+          id: data.id,
+          subjectName,
+          sem,
+          syllabusName: syllabus.name
+        };
+
+        setSubjectList([...subjectList, newSubject]);
+        showMessage('Subject added successfully!', 'success');
+        
+        // Reset form
+        setSubjectName('');
+        setSem('');
+        setSyllabus(null);
+        
+        // Reset file input
+        if (document.getElementById('syllabus-upload')) {
+          document.getElementById('syllabus-upload').value = '';
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        showMessage(err.message || 'Failed to add subject', 'error');
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -58,6 +109,33 @@ const AddSubs = ({ className }) => {
         ${className}
       `}
     >
+      {message && (
+        <div
+          className={`
+            fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg
+            flex items-center space-x-2 transition-all duration-300
+            ${message.type === 'success'
+              ? isDarkMode
+                ? 'bg-green-800 text-green-100'
+                : 'bg-green-100 text-green-800'
+              : isDarkMode
+                ? 'bg-red-800 text-red-100'
+                : 'bg-red-100 text-red-800'
+            }
+          `}
+        >
+          {message.type === 'success' ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          <span className="font-medium">{message.text}</span>
+        </div>
+      )}
       <div className="w-full max-w-5xl mx-auto space-y-8">
         {/* Main Container with Soft Shadow and Rounded Corners */}
         <div 
@@ -209,25 +287,43 @@ const AddSubs = ({ className }) => {
 
               <button
                 onClick={handleAddSubject}
-                disabled={!subjectName || !sem || !syllabus}
+                disabled={!subjectName || !sem || !syllabus || isSubmitting}
                 className={`
                   w-full flex items-center justify-center space-x-2 p-3 rounded-xl 
                   transition duration-300 transform hover:scale-[1.02]
-                  ${
-                    isDarkMode
-                      ? `
-                        bg-blue-700 text-blue-100 hover:bg-blue-600
-                        ${(!subjectName || !sem || !syllabus) ? 'opacity-50 cursor-not-allowed' : ''}
-                      `
-                      : `
-                        bg-blue-500 text-white hover:bg-blue-600
-                        ${(!subjectName || !sem || !syllabus) ? 'opacity-50 cursor-not-allowed' : ''}
-                      `
+                  ${isDarkMode
+                    ? `bg-blue-700 text-blue-100 hover:bg-blue-600
+                       ${(!subjectName || !sem || !syllabus || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`
+                    : `bg-blue-500 text-white hover:bg-blue-600
+                       ${(!subjectName || !sem || !syllabus || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`
                   }
                 `}
               >
-                <Plus size={20} />
-                <span>Add Subject</span>
+                {isSubmitting ? (
+                  <div className="flex items-center space-x-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Adding Subject...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Plus size={20} />
+                    <span>Add Subject</span>
+                  </>
+                )}
               </button>
             </div>
 
@@ -256,57 +352,53 @@ const AddSubs = ({ className }) => {
                       className={`
                         rounded-xl p-5 relative overflow-hidden
                         transition duration-300 transform hover:scale-[1.02] hover:shadow-lg
-                        ${
-                          isDarkMode
-                            ? "bg-gray-700 border border-gray-600"
-                            : "bg-white border border-gray-200 shadow-sm"
+                        ${isDarkMode
+                          ? "bg-gray-700 border border-gray-600"
+                          : "bg-white border border-gray-200 shadow-sm"
                         }
                       `}
                     >
-                      <button
-                        onClick={() => handleDeleteSubject(subject.id)}
-                        className={`
-                          absolute top-3 right-3 p-2 rounded-full 
-                          hover:bg-opacity-20 transition duration-300 z-10
-                          ${
-                            isDarkMode
-                              ? "text-red-400 hover:bg-red-500"
-                              : "text-red-500 hover:bg-red-500"
-                          }
-                        `}
-                      >
-                        <Trash2 size={20} />
-                      </button>
                       <div className="space-y-3">
                         <h3 className="font-bold text-lg truncate mb-2">{subject.subjectName}</h3>
-                        <div className="flex justify-between space-x-2">
+                        <div className="flex flex-wrap gap-2">
                           <span 
                             className={`
                               px-3 py-1 rounded-full text-xs font-medium
-                              ${
-                                isDarkMode
-                                  ? "bg-blue-800 text-blue-200"
-                                  : "bg-blue-100 text-blue-800"
+                              ${isDarkMode
+                                ? "bg-blue-800 text-blue-200"
+                                : "bg-blue-100 text-blue-800"
                               }
                             `}
                           >
                             Semester {subject.sem}
                           </span>
-                          <span 
+                          <span
                             className={`
-                              px-3 py-1 rounded-full text-xs truncate max-w-[150px] font-medium
-                              ${
-                                isDarkMode
-                                  ? "bg-green-800 text-green-200"
-                                  : "bg-green-100 text-green-800"
+                              px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1
+                              ${isDarkMode
+                                ? "bg-green-800 text-green-200"
+                                : "bg-green-100 text-green-800"
                               }
                             `}
-                            title={subject.syllabusName}
                           >
-                            {subject.syllabusName}
+                            <FileText size={12} />
+                            <span className="truncate max-w-[150px]">{subject.syllabusName}</span>
                           </span>
                         </div>
                       </div>
+                      <button
+                        onClick={() => handleDeleteSubject(subject.id)}
+                        className={`
+                          absolute top-3 right-3 p-2 rounded-full 
+                          hover:bg-opacity-20 transition duration-300
+                          ${isDarkMode
+                            ? "text-red-400 hover:bg-red-500"
+                            : "text-red-500 hover:bg-red-500"
+                          }
+                        `}
+                      >
+                        <Trash2 size={20} />
+                      </button>
                     </div>
                   ))}
                 </div>

@@ -365,29 +365,6 @@ const Analytics = ({ className }) => {
     '#8884D8', '#82CA9D', '#FF6384', '#36A2EB'
   ];
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
-    const RADIAN = Math.PI / 180;
-    const radius = outerRadius * 1.2;
-    
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-    const textAnchor = x > cx ? 'start' : 'end';
-
-    return (
-      <text 
-        x={x} 
-        y={y} 
-        fill={isDarkMode ? "#E5E7EB" : "#4B5563"}
-        textAnchor={textAnchor}
-        dominantBaseline="central"
-        fontSize="12"
-      >
-        {`${name} (${(percent * 100).toFixed(0)}%)`}
-      </text>
-    );
-  };
-
   return (
     <div
       className={`
@@ -520,12 +497,14 @@ const Analytics = ({ className }) => {
                     data={pocoData.pieChartData}
                     cx="50%"
                     cy="50%"
-                    labelLine={true}
-                    outerRadius={100}
+                    labelLine={false}
+                    outerRadius={120}
                     fill="#8884d8"
                     dataKey="value"
                     nameKey="name"
-                    label={renderCustomizedLabel}
+                    label={({ name, percent }) => 
+                      `${name} (${(percent * 100).toFixed(0)}%)`
+                    }
                   >
                     {pocoData.pieChartData.map((entry, index) => (
                       <Cell
@@ -543,10 +522,7 @@ const Analytics = ({ className }) => {
                       borderRadius: "12px",
                     }}
                   />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                  />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </div>

@@ -136,27 +136,50 @@ const CoPODashboard = ({ className }) => {
       return;
     }
   
-    const CO_data = CO_number.map(co => co.description.trim());
-  
-    const data = {
-      CO_name,
-      CO_ID,
-      sem,
-      subject,
-      CO_data
-    };
-  
     try {
+      // First, save the course details
+      const courseDetailsResponse = await fetch('http://127.0.0.1:8000/save-course-details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          CO_name,
+          CO_ID,
+          sem,
+          subject,
+          CO_number: CO_number.map(co => ({
+            id: co.id,
+            description: co.description.trim()
+          }))
+        }),
+      });
+  
+      if (!courseDetailsResponse.ok) {
+        const error = await courseDetailsResponse.json();
+        throw new Error(error.detail || 'Failed to save course details');
+      }
+  
+      // Show success notification for course details
+      showNotification('Course details saved successfully!');
+  
+      // Then proceed with the PO mapping generation
+      const CO_data = CO_number.map(co => co.description.trim());
       const response = await fetch('http://127.0.0.1:8000/course_data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          CO_name,
+          CO_ID,
+          sem,
+          subject,
+          CO_data
+        }),
       });
       
       const responseData = await response.json();
-      console.log(responseData)
       if (response.ok) {
         const transformedData = responseData.map(item => ({
           CO_number: item.CO_number.replace("CO",""),
@@ -170,16 +193,54 @@ const CoPODashboard = ({ className }) => {
         }));
         
         setPoMapping(transformedData);
-        showNotification('Course outcomes submitted successfully! PO mappings generated.');
+        showNotification('PO mappings generated successfully!');
         setIsSubmitted(true);
       } else {
-        setErrorMessage(responseData.error || 'Error submitting data');
-        setShowErrorModal(true);
+        throw new Error(responseData.error || 'Error generating PO mappings');
       }
     } catch (error) {
-      console.error('Error submitting data:', error);
-      setErrorMessage('Network error. Please try again.');
+      console.error('Error:', error);
+      setErrorMessage(error.message || 'Network error. Please try again.');
       setShowErrorModal(true);
+    }
+  };
+
+  // Add this function to handle the submission
+  const handleSubmitMapping = async () => {
+    setIsSubmitting(true);
+    
+    try {
+      // Prepare the data for submission
+      const mappingData = poMapping.map(co => ({
+        subject: subject,
+        CO_number: co.CO_number,
+        CO_Objective: co.CO_Objective,
+        Bloom_Level: co.Bloom_Level,
+        Mapped_POs: co.Mapped_POs.map(po => ({
+          PO: po.PO,
+          Rank: po.Rank,
+          Justification: po.Justification || ''
+        }))
+      }));
+
+      const response = await fetch('http://127.0.0.1:8000/save_co-po_mapping', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(mappingData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save mapping');
+      }
+
+      showNotification('CO-PO Mapping saved successfully!');
+    } catch (error) {
+      console.error('Error saving mapping:', error);
+      showNotification('Failed to save mapping: ' + error.message, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -278,112 +339,72 @@ const CoPODashboard = ({ className }) => {
       return;
     }
   
-    // Import jsPDF and autoTable dynamically to avoid SSR issues
-    import('jspdf').then(({ jsPDF }) => {
-      import('jspdf-autotable').then(() => {
-        // Create a new PDF document
-        const doc = new jsPDF();
-        
-        // Add title
-        doc.setFontSize(18);
-        doc.setTextColor(40);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Course Outcome and PO Mapping Report`, 105, 20, { align: 'center' });
-        
-        // Add course details
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Course Name: ${CO_name}`, 15, 30);
-        doc.text(`Course ID: ${CO_ID}`, 15, 38);
-        doc.text(`Semester: ${sem}`, 15, 46);
-        doc.text(`Subject: ${subject}`, 15, 54);
-        
-        // Add a line separator
-        doc.setDrawColor(200, 200, 200);
-        doc.line(15, 60, 195, 60);
-        
-        // Add PO mapping tables for each CO
-        let yPosition = 70;
-        
-        poMapping.forEach((mapping, index) => {
-          // Check if we need a new page
-          if (yPosition > 250 && index > 0) {
-            doc.addPage();
-            yPosition = 20;
-          }
+    // Create a printable HTML template
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>PO Mapping Report</title>
+          <style>
+            body { font-family: Arial; margin: 20px; }
+            h1 { color: #333; text-align: center; }
+            .course-info { margin-bottom: 20px; }
+            .co-section { margin-top: 30px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background-color: #3498db; color: white; padding: 8px; }
+            td { padding: 8px; border: 1px solid #ddd; }
+            .footer { margin-top: 30px; font-size: 0.8em; color: #777; }
+          </style>
+        </head>
+        <body>
+          <h1>Course Outcome and PO Mapping Report</h1>
+          <div class="course-info">
+            <p><strong>Course Name:</strong> ${CO_name}</p>
+            <p><strong>Course ID:</strong> ${CO_ID}</p>
+            <p><strong>Semester:</strong> ${sem}</p>
+            <p><strong>Subject:</strong> ${subject}</p>
+          </div>
           
-          // Add CO header
-          doc.setFontSize(14);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`CO${mapping.CO_number}: ${mapping.CO_Objective}`, 15, yPosition);
-          doc.setFontSize(12);
-          doc.setFont('helvetica', 'normal');
-          doc.text(`Bloom's Taxonomy Level: ${mapping.Bloom_Level}`, 15, yPosition + 8);
+          ${poMapping.map(mapping => `
+            <div class="co-section">
+              <h3>CO${mapping.CO_number}: ${mapping.CO_Objective}</h3>
+              <p><strong>Bloom's Taxonomy Level:</strong> ${mapping.Bloom_Level}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>PO</th>
+                    <th>Justification</th>
+                    <th>Rank</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${mapping.Mapped_POs.map(po => `
+                    <tr>
+                      <td>${po.PO}</td>
+                      <td>${po.Justification}</td>
+                      <td>${po.Rank}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `).join('')}
           
-          yPosition += 18;
+          <div class="footer">
+            Generated on: ${new Date().toLocaleString()}
+          </div>
           
-          // Prepare data for the table
-          const tableData = mapping.Mapped_POs.map(po => [
-            po.PO,
-            po.Justification,
-            po.Rank.toString()
-          ]);
-          
-          // Add the table using autoTable
-          doc.autoTable({
-            startY: yPosition,
-            head: [['PO', 'Justification', 'Rank']],
-            body: tableData,
-            margin: { left: 15, right: 15 },
-            styles: { 
-              fontSize: 10,
-              cellPadding: 3,
-              overflow: 'linebreak',
-              valign: 'middle'
-            },
-            headStyles: { 
-              fillColor: [52, 152, 219],
-              textColor: 255,
-              fontStyle: 'bold'
-            },
-            alternateRowStyles: {
-              fillColor: [240, 240, 240]
-            },
-            columnStyles: {
-              0: { cellWidth: 20 },
-              1: { cellWidth: 'auto' },
-              2: { cellWidth: 20 }
-            },
-            didDrawPage: function (data) {
-              // Footer
-              doc.setFontSize(10);
-              doc.setTextColor(150);
-              const pageCount = doc.internal.getNumberOfPages();
-              doc.text(`Page ${data.pageNumber} of ${pageCount}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
-            }
-          });
-          
-          // Update yPosition for next CO
-          yPosition = doc.lastAutoTable.finalY + 15;
-        });
-        
-        // Add generated at timestamp on first page
-        doc.setFontSize(10);
-        doc.setTextColor(150);
-        doc.text(`Generated on: ${new Date().toLocaleString()}`, 15, doc.internal.pageSize.height - 10);
-        
-        // Save the PDF
-        doc.save(`PO_Mapping_${CO_ID}_${new Date().toISOString().slice(0, 10)}.pdf`);
-        
-        showNotification('PDF exported successfully!');
-      }).catch(error => {
-        console.error('Error loading jspdf-autotable:', error);
-        showNotification('Failed to load PDF exporter', 'error');
-      });
-    }).catch(error => {
-      console.error('Error loading jspdf:', error);
-      showNotification('Failed to load PDF exporter', 'error');
-    });
+          <script>
+            // Automatically trigger print and close after delay
+            setTimeout(() => {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            }, 200);
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const renderPOMappingTable = () => {
@@ -443,6 +464,9 @@ const CoPODashboard = ({ className }) => {
       </div>
     );
   };
+
+  // Add this state for submission
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
     <div className={`relative min-h-screen p-4 overflow-hidden ${isDarkMode ? colorPalettes.dark.background : colorPalettes.light.background}`}>
@@ -575,9 +599,14 @@ const CoPODashboard = ({ className }) => {
                 </div>
                 <button 
                   onClick={exportToPDF}
-                  className={`flex items-center px-4 py-2 rounded-lg ${isDarkMode ? "bg-green-900 text-green-300 hover:bg-green-800" : "bg-green-200 text-green-800 hover:bg-green-300"}`}
+                  className={`flex items-center px-4 py-2 rounded-lg ${
+                    isDarkMode 
+                      ? "bg-green-900 text-green-300 hover:bg-green-800" 
+                      : "bg-green-200 text-green-800 hover:bg-green-300"
+                  }`}
                 >
-                  <Download className="mr-2" size={18} /> Export PDF
+                  <Download className="mr-2" size={18} />
+                  Export PDF
                 </button>
               </div>
               
@@ -653,12 +682,30 @@ const CoPODashboard = ({ className }) => {
                   />
                 </div>
                 
-                <div className="flex justify-between items-center mt-6">
+                <div className="flex justify-between items-center mt-6 space-x-4">
                   <button 
                     onClick={handleMakeChanges}
-                    className={`w-full px-4 py-3 rounded-lg ${isDarkMode ? "bg-indigo-900 text-indigo-300 hover:bg-indigo-800" : "bg-indigo-200 text-indigo-800 hover:bg-indigo-300"}`}
+                    className={`w-1/2 px-4 py-3 rounded-lg ${isDarkMode ? "bg-indigo-900 text-indigo-300 hover:bg-indigo-800" : "bg-indigo-200 text-indigo-800 hover:bg-indigo-300"}`}
                   >
                     Apply Changes
+                  </button>
+                  
+                  <button
+                    onClick={handleSubmitMapping}
+                    disabled={isSubmitting}
+                    className={`w-1/2 px-4 py-3 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-green-900 text-green-300 hover:bg-green-800" : "bg-green-200 text-green-800 hover:bg-green-300"} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <span className="animate-spin mr-2">⌛</span>
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        <span>Submit Mapping</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

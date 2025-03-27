@@ -1,43 +1,26 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState } from "react";
 import { ThemeContext } from "../App";
-import { FileUp, FileText, BookOpen, Search, Save, X, CheckCircle, Send } from "lucide-react";
+import { FileUp, FileText, BookOpen, Send, X, CheckCircle } from "lucide-react";
 
 const ExamPaperEvaluation = ({ className }) => {
   const { isDarkMode } = useContext(ThemeContext);
   const [subject, setSubject] = useState("");
-  const [excelFile, setExcelFile] = useState(null);
   const [evaluationResults, setEvaluationResults] = useState(null);
-  
-  // New states for database features
-  const [searchSubject, setSearchSubject] = useState("");
-  const [existingReport, setExistingReport] = useState(null);
-  const [isSavingReport, setIsSavingReport] = useState(false);
-  const [saveError, setSaveError] = useState(null);
-
-  // New state for Unit Test Questions
-  const [unitTestQuestions, setUnitTestQuestions] = useState({
-    Q1: '',
-    Q2: '',
-    Q3: '',
-    Q4: ''
-  });
-
-  // New state for questions submission
-  const [isQuestionsSubmitted, setIsQuestionsSubmitted] = useState(false);
-
-  // New state for popup
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [popupMessage, setPopupMessage] = useState(null);
   const [popupType, setPopupType] = useState('success');
+  
+  // PDF states
+  const [questionPdf, setQuestionPdf] = useState(null);
+  const [extractedQuestions, setExtractedQuestions] = useState(null);
 
-  // New state for final submission
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  // Add new state for analysis results
+  const [analysisResults, setAnalysisResults] = useState(null);
 
   // Show popup with message and type
   const showPopup = (message, type = 'success') => {
     setPopupMessage(message);
     setPopupType(type);
-
-    // Automatically clear popup after 3 seconds
     setTimeout(() => {
       setPopupMessage(null);
     }, 3000);
@@ -66,584 +49,265 @@ const ExamPaperEvaluation = ({ className }) => {
     );
   };
 
-  // Handler for Unit Test Questions
-  const handleUnitTestQuestionChange = (question, value) => {
-    setUnitTestQuestions(prev => ({
-      ...prev,
-      [question]: value
-    }));
-  };
-
-  // New method to handle questions submission
-  const handleQuestionsSubmit = () => {
-    // Validate that all questions are filled
-    const allQuestionsFilled = Object.values(unitTestQuestions).every(q => q.trim() !== '');
-    
-    if (!allQuestionsFilled) {
-      showPopup('Please fill all unit test questions', 'error');
-      return;
-    }
-
-    // If all questions are filled, mark as submitted
-    setIsQuestionsSubmitted(true);
-    showPopup('Unit Test Questions Submitted Successfully!');
-  };
-
-  // Static Course Outcomes (CO) for demonstration
-  const courseOutcomes = Array.from({ length: 5 }, (_, i) => ({
-    co: `CO${i + 1}`,
-    description: `Course Outcome ${i + 1} Description`
-  }));
-
-  const handleFileUpload = (event) => {
+  const handleQuestionPdfUpload = async (event) => {
     const file = event.target.files[0];
-    setExcelFile(file);
-  };
+    if (!file) return;
 
-  const generateEvaluation = () => {
-    // Placeholder for actual backend evaluation
-    const mockResults = Array.from({ length: 10 }, (_, i) => ({
-      name: `Student ${i + 1}`,
-      ...Object.fromEntries(
-        courseOutcomes.map(co => [co.co, Math.floor(Math.random() * 100)])
-      )
-    }));
-
-    setEvaluationResults(mockResults);
-  };
-
-  // Improved save to database function
-  const saveToDatabase = async () => {
-    // Reset previous errors
-    setSaveError(null);
-
-    // Validate before saving
-    if (!subject) {
-      showPopup('Please enter a subject before saving', 'error');
+    // Validate file type
+    if (!file.type.includes('pdf')) {
+      showPopup('Please upload a PDF file', 'error');
       return;
     }
 
-    if (!evaluationResults) {
-      showPopup('No evaluation results to save', 'error');
-      return;
-    }
-
-    // Set saving state
-    setIsSavingReport(true);
+    setQuestionPdf(file);
+    const formData = new FormData();
+    formData.append('file', file);
 
     try {
-      // Simulate API call (replace with actual API call)
-      const response = await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulating a possible error scenario
-          if (Math.random() < 0.1) {  // 10% chance of error for demonstration
-            reject(new Error('Database connection failed'));
-          } else {
-            resolve({
-              success: true,
-              message: 'Report saved successfully',
-              savedData: {
-                subject,
-                totalStudents: evaluationResults.length,
-                unitTestQuestions
-              }
-            });
-          }
-        }, 1500);  // Simulate network delay
+      const response = await fetch('http://127.0.0.1:8000/upload-exam-paper', {
+        method: 'POST',
+        body: formData
       });
 
-      // Success scenario
-      showPopup(response.message);
-      
-      // Optional: you might want to do something with the response
-      console.log('Save response:', response);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to upload question paper');
+      }
+
+      const data = await response.json();
+      if (data.questions && data.questions.length > 0) {
+        setExtractedQuestions(data.questions);
+        showPopup(`Successfully extracted ${data.questions.length} questions!`);
+      } else {
+        throw new Error('No questions could be extracted from the PDF');
+      }
     } catch (error) {
-      // Error handling
-      const errorMessage = error.message || 'Failed to save report';
-      showPopup(errorMessage, 'error');
-      setSaveError(errorMessage);
-    } finally {
-      // Always reset saving state
-      setIsSavingReport(false);
+      setQuestionPdf(null); // Reset the file input
+      showPopup(error.message || 'Error uploading question paper', 'error');
     }
   };
 
-  const searchExistingReport = () => {
-    // Placeholder for database search functionality
-    if (searchSubject) {
-      // Simulating an existing report fetch
-      const mockExistingReport = {
-        subject: searchSubject,
-        results: Array.from({ length: 10 }, (_, i) => ({
-          name: `Student ${i + 1}`,
-          ...Object.fromEntries(
-            courseOutcomes.map(co => [co.co, Math.floor(Math.random() * 100)])
-          )
-        }))
-      };
-      setExistingReport(mockExistingReport);
-      
-      // Show popup for successful search
-      showPopup(`Existing report found for ${searchSubject}`);
-    }
-  };
-
-  // New submit handler
-  const handleFinalSubmit = () => {
-    // Validate before submission
-    if (!subject) {
-      showPopup('Please enter a subject before submitting', 'error');
-      return;
-    }
-
-    if (!evaluationResults) {
-      showPopup('Please generate evaluation results first', 'error');
-      return;
-    }
-
-    if (!isQuestionsSubmitted) {
-      showPopup('Please submit unit test questions first', 'error');
+  const handleFinalSubmit = async () => {
+    if (!subject || !questionPdf || !extractedQuestions) {
+      showPopup('Please complete all required fields and upload the question paper', 'error');
       return;
     }
 
     try {
-      // Simulate submission process
-      const submissionData = {
-        subject,
-        evaluationResults,
-        unitTestQuestions,
-        timestamp: new Date().toISOString()
-      };
+      const response = await fetch('http://127.0.0.1:8000/evaluate-exam-paper', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subject,
+          questions: extractedQuestions
+        })
+      });
 
-      // In a real application, you would send this to a backend
-      console.log('Submission Data:', submissionData);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to process evaluation');
+      }
 
-      // Set submission state
+      const data = await response.json();
+      setAnalysisResults(data.analysis);
+      showPopup('Evaluation processed successfully!');
       setIsSubmitted(true);
-      showPopup('Evaluation report submitted successfully!');
     } catch (error) {
-      showPopup('Submission failed. Please try again.', 'error');
+      showPopup(error.message || 'Error processing evaluation', 'error');
     }
   };
 
   return (
-    <div
-      className={`
-      min-h-screen p-6 
-      ${
-        isDarkMode
-          ? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100"
-          : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-900"
-      }
-      ${className}
-    `}
-    >
-      {/* Custom Popup */}
-      {popupMessage && (
-        <Popup message={popupMessage} type={popupType} />
-      )}
+    <div className={`min-h-screen p-6 ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100" : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-900"} ${className}`}>
+      {/* Popup Notification */}
+      {popupMessage && <Popup message={popupMessage} type={popupType} />}
 
-      {/* Error notification */}
-      {saveError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error: </strong>
-          <span className="block sm:inline">{saveError}</span>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className={`p-6 rounded-xl shadow-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+          <h1 className="text-2xl font-bold mb-2">Exam Paper Evaluation</h1>
+          <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Upload and analyze exam papers</p>
         </div>
-      )}
 
-      <div className="grid md:grid-cols-[2fr_1fr] gap-6 mb-6">
-        {/* Input Panel */}
-        <div
-          className={`
-          p-6 rounded-xl shadow-lg
-          ${
-            isDarkMode
-              ? "bg-gray-800 border-l-4 border-green-600"
-              : "bg-white border-l-4 border-green-500"
-          }
-        `}
-        >
+        {/* Subject Input */}
+        <div className={`p-6 rounded-xl shadow-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
           <div className="flex items-center mb-4">
-            <BookOpen
-              className={`mr-3 ${
-                isDarkMode ? "text-green-400" : "text-green-600"
-              }`}
+            <BookOpen className={`mr-3 ${isDarkMode ? "text-blue-400" : "text-blue-600"}`} />
+            <h2 className="text-xl font-semibold">Subject Details</h2>
+          </div>
+          <input
+            type="text"
+            placeholder="Enter Subject Name"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className={`w-full p-3 rounded-lg border ${isDarkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "bg-white border-gray-300 text-gray-900"}`}
+          />
+        </div>
+
+        {/* Question Paper Upload Section */}
+        <div className={`p-6 rounded-xl shadow-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+          <div className="flex items-center mb-4">
+            <FileText className={`mr-3 ${isDarkMode ? "text-blue-400" : "text-blue-600"}`} />
+            <h2 className="text-xl font-semibold">Question Paper Upload</h2>
+          </div>
+          
+          <div className={`border-2 border-dashed rounded-lg p-6 ${isDarkMode ? "border-gray-600" : "border-gray-300"}`}>
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handleQuestionPdfUpload}
+              className="hidden"
+              id="question-pdf-upload"
             />
-            <h2 className="text-xl font-semibold">Exam Paper Evaluation</h2>
+            <label
+              htmlFor="question-pdf-upload"
+              className={`flex items-center justify-center cursor-pointer ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
+            >
+              <FileUp className="mr-2" />
+              {questionPdf ? questionPdf.name : "Choose Question Paper PDF"}
+            </label>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label 
-                className={`block mb-2 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-700"
-                }`}
-              >
-                Subject
-              </label>
-              <input 
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className={`
-                  w-full p-3 rounded-lg border
-                  ${
-                    isDarkMode
-                      ? "bg-gray-700 border-gray-600 text-gray-200"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }
-                `}
-                placeholder="Enter Subject Name"
-              />
-            </div>
-
-            <div>
-              <label 
-                className={`block mb-2 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-700"
-                }`}
-              >
-                Upload Excel
-              </label>
-              <div 
-                className={`
-                  flex items-center justify-center w-full
-                  border-2 border-dashed rounded-lg p-6
-                  ${
-                    isDarkMode
-                      ? "border-gray-600 bg-gray-700"
-                      : "border-gray-300 bg-gray-50"
-                  }
-                `}
-              >
-                <input 
-                  type="file" 
-                  accept=".xlsx, .xls, .csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="excel-upload"
-                />
-                <label 
-                  htmlFor="excel-upload" 
-                  className={`
-                    flex items-center cursor-pointer
-                    ${
-                      isDarkMode
-                        ? "text-blue-400 hover:text-blue-300"
-                        : "text-blue-600 hover:text-blue-500"
-                    }
-                  `}
-                >
-                  <FileUp className="mr-2" />
-                  {excelFile ? excelFile.name : "Choose Excel File"}
-                </label>
+          {extractedQuestions && (
+            <div className="mt-4">
+              <h3 className="font-semibold mb-2">Extracted Questions ({extractedQuestions.length})</h3>
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {extractedQuestions.map((q, index) => (
+                  <div key={index} className={`p-2 rounded ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+                    <p>Page {q.page}: {q.text}</p>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <button
-              onClick={generateEvaluation}
-              disabled={!subject || !excelFile}
-              className={`
-                w-full p-3 rounded-lg transition-all duration-300
-                ${
-                  !subject || !excelFile
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : isDarkMode
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-green-500 hover:bg-green-600"
-                }
-                text-white font-semibold
-              `}
-            >
-              Generate Evaluation
-            </button>
-
-            {/* Unit Test Questions Input */}
-            <div className="mt-4 space-y-4">
-              {['Q1', 'Q2', 'Q3', 'Q4'].map((question) => (
-                <div key={question}>
-                  <label 
-                    className={`block mb-2 ${
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
-                  >
-                    {question}
-                  </label>
-                  <textarea
-                    value={unitTestQuestions[question]}
-                    onChange={(e) => handleUnitTestQuestionChange(question, e.target.value)}
-                    className={`
-                      w-full p-3 rounded-lg border min-h-[100px]
-                      ${
-                        isDarkMode
-                          ? "bg-gray-700 border-gray-600 text-gray-200"
-                          : "bg-white border-gray-300 text-gray-900"
-                      }
-                    `}
-                    placeholder={`Enter ${question} details`}
-                  />
-                </div>
-              ))}
-
-              {/* New Submit Button for Questions */}
-              {!isQuestionsSubmitted && (
-                <button
-                  onClick={handleQuestionsSubmit}
-                  className={`
-                    w-full p-3 rounded-lg transition-all duration-300 mt-4
-                    ${
-                      isDarkMode
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-blue-500 hover:bg-blue-600"
-                    }
-                    text-white font-semibold flex items-center justify-center
-                  `}
-                >
-                  <Send className="mr-2" />
-                  Submit Unit Test Questions
-                </button>
-              )}
-
-              {/* Success Message when Questions are Submitted */}
-              {isQuestionsSubmitted && (
-                <div 
-                  className={`
-                    w-full p-4 rounded-lg text-center font-semibold mt-4
-                    ${
-                      isDarkMode
-                        ? "bg-green-800 text-green-300"
-                        : "bg-green-100 text-green-800"
-                    }
-                  `}
-                >
-                  Unit Test Questions Submitted ✓
-                </div>
-              )}
-            </div>
-
-            {evaluationResults && (
-              <button
-                onClick={saveToDatabase}
-                disabled={isSavingReport}
-                className={`
-                  w-full p-3 rounded-lg transition-all duration-300 mt-4
-                  ${
-                    isSavingReport
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : isDarkMode
-                      ? "bg-blue-600 hover:bg-blue-700"
-                      : "bg-blue-500 hover:bg-blue-600"
-                  }
-                  text-white font-semibold flex items-center justify-center
-                `}
-              >
-                <Save className="mr-2" />
-                {isSavingReport ? 'Saving...' : 'Save to Database'}
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Course Outcomes Panel */}
-        <div
-          className={`
-          p-6 rounded-xl shadow-lg
-          ${
-            isDarkMode
-              ? "bg-gray-800 border-l-4 border-indigo-600"
-              : "bg-white border-l-4 border-indigo-500"
-          }
-        `}
-        >
-          <div className="flex items-center mb-4">
-            <FileText
-              className={`mr-3 ${
-                isDarkMode ? "text-indigo-400" : "text-indigo-600"
-              }`}
-            />
-            <h2 className="text-xl font-semibold">Course Outcomes</h2>
-          </div>
-          {courseOutcomes.map((co) => (
-            <div
-              key={co.co}
-              className={`
-                p-4 rounded-lg mb-4 transition-all duration-300
-                ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}
-              `}
-            >
-              <h3 className="font-bold mb-2">
-                {co.co}: {co.description}
-              </h3>
-            </div>
-          ))}
-
-          {/* Search Existing Report Section */}
-          <div className="mt-6">
-            <div className="flex items-center mb-4">
-              <Search
-                className={`mr-3 ${
-                  isDarkMode ? "text-purple-400" : "text-purple-600"
-                }`}
-              />
-              <h2 className="text-xl font-semibold">Search Existing Report</h2>
-            </div>
-            
-            <div className="flex space-x-2">
-              <input 
-                type="text"
-                value={searchSubject}
-                onChange={(e) => setSearchSubject(e.target.value)}
-                className={`
-                  flex-grow p-3 rounded-lg border
-                  ${
-                    isDarkMode
-                      ? "bg-gray-700 border-gray-600 text-gray-200"
-                      : "bg-white border-gray-300 text-gray-900"
-                  }
-                `}
-                placeholder="Enter Subject Name"
-              />
-              <button
-                onClick={searchExistingReport}
-                disabled={!searchSubject}
-                className={`
-                  p-3 rounded-lg transition-all duration-300
-                  ${
-                    !searchSubject
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : isDarkMode
-                      ? "bg-purple-600 hover:bg-purple-700"
-                      : "bg-purple-500 hover:bg-purple-600"
-                  }
-                  text-white font-semibold
-                `}
-              >
-                Search
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Evaluation Results */}
-      {(evaluationResults || existingReport) && (
-        <div
-          className={`
-          p-6 rounded-xl shadow-lg
-          ${
-            isDarkMode
-              ? "bg-gray-800 border-l-4 border-purple-600"
-              : "bg-white border-l-4 border-purple-500"
-          }
-        `}
-        >
-          <div className="flex items-center mb-4">
-            <FileText
-              className={`mr-3 ${
-                isDarkMode ? "text-purple-400" : "text-purple-600"
-              }`}
-            />
-            <h2 className="text-xl font-semibold">
-              {existingReport ? 'Existing Report' : 'Evaluation Results'}
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr
-                  className={`
-                    ${
-                      isDarkMode
-                        ? "bg-gray-700 text-gray-300"
-                        : "bg-gray-200 text-gray-700"
-                    }
-                  `}
-                >
-                  <th className="p-3 text-left">Name</th>
-                  {courseOutcomes.map(co => (
-                    <th key={co.co} className="p-3 text-center">{co.co}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(existingReport?.results || evaluationResults).map((result, index) => (
-                  <tr 
-                    key={index}
-                    className={`
-                      border-b
-                      ${
-                        isDarkMode
-                          ? "border-gray-700 hover:bg-gray-700"
-                          : "border-gray-200 hover:bg-gray-100"
-                      }
-                    `}
-                  >
-                    <td className="p-3">{result.name}</td>
-                    {courseOutcomes.map(co => (
-                      <td 
-                        key={co.co} 
-                        className="p-3 text-center"
-                      >
-                        {result[co.co]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Final Submit Section */}
-      <div
-        className={`
-        p-6 rounded-xl shadow-lg mt-6
-        ${
-          isDarkMode
-            ? "bg-gray-800 border-l-4 border-red-600"
-            : "bg-white border-l-4 border-red-500"
-        }
-        ${evaluationResults && isQuestionsSubmitted ? 'block' : 'hidden'}
-      `}
-      >
-        <div className="flex items-center mb-4">
-          <Send
-            className={`mr-3 ${
-              isDarkMode ? "text-red-400" : "text-red-600"
-            }`}
-          />
-          <h2 className="text-xl font-semibold">Final Submission</h2>
-        </div>
-
-        {!isSubmitted ? (
+        {/* Submit Button */}
+        <div className="flex justify-end">
           <button
             onClick={handleFinalSubmit}
-            className={`
-              w-full p-4 rounded-lg transition-all duration-300
-              ${
-                isDarkMode
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-red-500 hover:bg-red-600"
-              }
-              text-white font-semibold flex items-center justify-center
-            `}
+            disabled={!subject || !questionPdf}
+            className={`px-6 py-3 rounded-lg font-semibold flex items-center
+              ${!subject || !questionPdf
+                ? "bg-gray-400 cursor-not-allowed"
+                : isDarkMode
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-blue-500 hover:bg-blue-600"
+              } text-white`}
           >
             <Send className="mr-2" />
-            Submit Evaluation Report
+            Submit for Evaluation
           </button>
-        ) : (
-          <div 
-            className={`
-              w-full p-4 rounded-lg text-center font-semibold
-              ${
-                isDarkMode
-                  ? "bg-green-800 text-green-300"
-                  : "bg-green-100 text-green-800"
-              }
-            `}
-          >
-            Evaluation Report Submitted ✓
+        </div>
+
+        {/* Add this section to display analysis results after the question upload section */}
+        {isSubmitted && analysisResults && (
+          <div className={`p-6 rounded-xl shadow-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+            <div className="flex items-center mb-6">
+              <FileText className={`mr-3 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
+              <h2 className="text-xl font-semibold">Question Analysis Results</h2>
+            </div>
+            
+            <div className="space-y-6">
+              {analysisResults.map((analysis, index) => (
+                <div 
+                  key={index}
+                  className={`p-6 rounded-lg border ${
+                    isDarkMode 
+                      ? "bg-gray-700 border-gray-600" 
+                      : "bg-gray-50 border-gray-200"
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      isDarkMode ? "bg-gray-800 text-gray-200" : "bg-gray-200 text-gray-800"
+                    }`}>
+                      Q{index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-lg mb-4 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      }`}>
+                        {analysis.question_text}
+                      </p>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {/* Aligned COs */}
+                        <div className={`p-4 rounded-lg ${
+                          isDarkMode ? "bg-gray-800" : "bg-white"
+                        }`}>
+                          <h3 className="font-medium mb-3">Aligned Course Outcomes</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {analysis.aligned_COs.map((co, i) => (
+                              <span
+                                key={i}
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  isDarkMode 
+                                    ? "bg-blue-900 text-blue-200" 
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {co}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Alignment Strength */}
+                        <div className={`p-4 rounded-lg ${
+                          isDarkMode ? "bg-gray-800" : "bg-white"
+                        }`}>
+                          <h3 className="font-medium mb-3">Alignment Strength</h3>
+                          <span className={`px-4 py-2 rounded-full text-sm font-medium ${
+                            analysis.alignment_strength === 'High'
+                              ? isDarkMode 
+                                ? "bg-green-900 text-green-200" 
+                                : "bg-green-100 text-green-800"
+                              : analysis.alignment_strength === 'Medium'
+                                ? isDarkMode
+                                  ? "bg-yellow-900 text-yellow-200"
+                                  : "bg-yellow-100 text-yellow-800"
+                                : isDarkMode
+                                  ? "bg-red-900 text-red-200"
+                                  : "bg-red-100 text-red-800"
+                          }`}>
+                            {analysis.alignment_strength}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary Section */}
+            <div className={`mt-6 p-6 rounded-lg ${
+              isDarkMode ? "bg-gray-700" : "bg-gray-50"
+            }`}>
+              <h3 className="font-semibold mb-4">Analysis Summary</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+                  <p className="text-sm text-gray-500">Total Questions</p>
+                  <p className="text-2xl font-bold">{analysisResults.length}</p>
+                </div>
+                <div className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+                  <p className="text-sm text-gray-500">High Alignment</p>
+                  <p className="text-2xl font-bold">
+                    {analysisResults.filter(a => a.alignment_strength === 'High').length}
+                  </p>
+                </div>
+                <div className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+                  <p className="text-sm text-gray-500">Medium/Low Alignment</p>
+                  <p className="text-2xl font-bold">
+                    {analysisResults.filter(a => a.alignment_strength !== 'High').length}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
