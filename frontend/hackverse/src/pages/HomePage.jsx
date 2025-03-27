@@ -5,15 +5,13 @@ import {
   BookOpen, 
   TrendingUp, 
   Shield, 
-  Globe, 
-  Award, 
   Sun, 
   Moon,
   Check,
-  ArrowRight,
   BarChart2,
   Target,
-  Activity
+  Activity,
+  AlertTriangle
 } from 'lucide-react';
 
 const HomePage = () => {
@@ -24,8 +22,30 @@ const HomePage = () => {
     password: '',
     confirmPassword: ''
   });
+  const [validationErrors, setValidationErrors] = useState({});
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('');
   const navigate = useNavigate();
   const { isDarkMode, toggleDarkMode } = useContext(ThemeContext);
+
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
+
+  const validatePassword = (password) => {
+    // Password must be at least 8 characters, contain uppercase, lowercase, number, and special character
+    const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return re.test(password);
+  };
+
+  const showWarningPopup = (message) => {
+    setWarningMessage(message);
+    setShowWarning(true);
+    setTimeout(() => {
+      setShowWarning(false);
+    }, 3000); // Popup disappears after 3 seconds
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,26 +53,86 @@ const HomePage = () => {
       ...prevState,
       [name]: value
     }));
+    
+    // Clear specific field errors when typing
+    if (validationErrors[name]) {
+      setValidationErrors(prev => {
+        const newErrors = {...prev};
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const errors = {};
     
     if (isLogin) {
-      if (formData.email && formData.password) {
-        navigate('/dashboard');
+      // Login validation
+      if (!formData.email) {
+        errors.email = 'Email is required';
+      } else if (!validateEmail(formData.email)) {
+        errors.email = 'Invalid email format';
+      }
+
+      if (!formData.password) {
+        errors.password = 'Password is required';
       }
     } else {
-      if (formData.username && formData.email && 
-          formData.password && 
-          formData.password === formData.confirmPassword) {
-        navigate('/dashboard');
+      // Signup validation
+      if (!formData.username) {
+        errors.username = 'Faculty name is required';
+      } else if (formData.username.length < 2) {
+        errors.username = 'Faculty name must be at least 2 characters';
       }
+
+      if (!formData.email) {
+        errors.email = 'Institutional email is required';
+      } else if (!validateEmail(formData.email)) {
+        errors.email = 'Invalid email format';
+      }
+
+      if (!formData.password) {
+        errors.password = 'Password is required';
+      } else if (!validatePassword(formData.password)) {
+        errors.password = 'Password must be at least 8 characters long, contain uppercase, lowercase, number, and special character';
+      }
+
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = 'Please confirm your password';
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      
+      // Show the first error as a warning popup
+      const firstErrorKey = Object.keys(errors)[0];
+      showWarningPopup(errors[firstErrorKey]);
+      return;
+    }
+
+    // If all validations pass
+    if (isLogin) {
+      navigate('/dashboard');
+    } else {
+      navigate('/dashboard');
     }
   };
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
+    // Reset form data and errors when switching between login and signup
+    setFormData({
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: ''
+    });
+    setValidationErrors({});
   };
 
   const features = [
@@ -76,6 +156,21 @@ const HomePage = () => {
     }
   ];
 
+  const WarningPopup = () => (
+    <div 
+      className={`
+        fixed top-4 right-4 z-50 flex items-center p-4 rounded-lg shadow-lg transform transition-all duration-300
+        ${showWarning ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
+        ${isDarkMode 
+          ? 'bg-red-900/80 text-white' 
+          : 'bg-red-100 text-red-800'}
+      `}
+    >
+      <AlertTriangle className="mr-3 w-6 h-6" />
+      <span>{warningMessage}</span>
+    </div>
+  );
+
   return (
     <div 
       className={`
@@ -85,7 +180,10 @@ const HomePage = () => {
           : 'bg-gradient-to-br from-gray-100 via-white to-gray-200'}
       `}
     >
-      {/* Navigation and Main Content remain the same as previous implementation */}
+      {/* Warning Popup */}
+      <WarningPopup />
+
+      {/* Navigation */}
       <nav className={`
         relative z-10 flex justify-between items-center p-6 
         ${isDarkMode ? 'bg-gray-800/50' : 'bg-white/50'}
@@ -165,7 +263,7 @@ const HomePage = () => {
             </div>
           </div>
 
-          {/* Right Section: Authentication Form (remains the same) */}
+          {/* Right Section: Authentication Form */}
           <div>
             <div className={`
               p-8 rounded-2xl shadow-2xl relative overflow-hidden
@@ -205,8 +303,17 @@ const HomePage = () => {
                         ${isDarkMode 
                           ? 'bg-gray-700 text-gray-100 border-gray-600' 
                           : 'border text-gray-900'}
+                        ${validationErrors.username ? 'border-red-500' : ''}
                       `}
                     />
+                    {validationErrors.username && (
+                      <span className={`
+                        text-xs text-red-500 absolute left-0 -bottom-5
+                        ${isDarkMode ? 'text-red-400' : 'text-red-600'}
+                      `}>
+                        {validationErrors.username}
+                      </span>
+                    )}
                     <Check 
                       className={`
                         absolute left-3 top-1/2 transform -translate-y-1/2
@@ -230,8 +337,17 @@ const HomePage = () => {
                       ${isDarkMode 
                         ? 'bg-gray-700 text-gray-100 border-gray-600' 
                         : 'border text-gray-900'}
+                      ${validationErrors.email ? 'border-red-500' : ''}
                     `}
                   />
+                  {validationErrors.email && (
+                    <span className={`
+                      text-xs text-red-500 absolute left-0 -bottom-5
+                      ${isDarkMode ? 'text-red-400' : 'text-red-600'}
+                    `}>
+                      {validationErrors.email}
+                    </span>
+                  )}
                   <TrendingUp 
                     className={`
                       absolute left-3 top-1/2 transform -translate-y-1/2
@@ -255,8 +371,17 @@ const HomePage = () => {
                       ${isDarkMode 
                         ? 'bg-gray-700 text-gray-100 border-gray-600' 
                         : 'border text-gray-900'}
+                      ${validationErrors.password ? 'border-red-500' : ''}
                     `}
                   />
+                  {validationErrors.password && (
+                    <span className={`
+                      text-xs text-red-500 absolute left-0 -bottom-5
+                      ${isDarkMode ? 'text-red-400' : 'text-red-600'}
+                    `}>
+                      {validationErrors.password}
+                    </span>
+                  )}
                   <Shield 
                     className={`
                       absolute left-3 top-1/2 transform -translate-y-1/2
@@ -281,8 +406,17 @@ const HomePage = () => {
                         ${isDarkMode 
                           ? 'bg-gray-700 text-gray-100 border-gray-600' 
                           : 'border text-gray-900'}
+                        ${validationErrors.confirmPassword ? 'border-red-500' : ''}
                       `}
                     />
+                    {validationErrors.confirmPassword && (
+                      <span className={`
+                        text-xs text-red-500 absolute left-0 -bottom-5
+                        ${isDarkMode ? 'text-red-400' : 'text-red-600'}
+                      `}>
+                        {validationErrors.confirmPassword}
+                      </span>
+                    )}
                     <Shield 
                       className={`
                         absolute left-3 top-1/2 transform -translate-y-1/2
