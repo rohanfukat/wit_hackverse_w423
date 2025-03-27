@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../App";
-import { FileUp, FileText, BookOpen, Search, Save, X, CheckCircle } from "lucide-react";
+import { FileUp, FileText, BookOpen, Search, Save, X, CheckCircle, Send } from "lucide-react";
 
 const ExamPaperEvaluation = ({ className }) => {
   const { isDarkMode } = useContext(ThemeContext);
@@ -14,9 +14,23 @@ const ExamPaperEvaluation = ({ className }) => {
   const [isSavingReport, setIsSavingReport] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
+  // New state for Unit Test Questions
+  const [unitTestQuestions, setUnitTestQuestions] = useState({
+    Q1: '',
+    Q2: '',
+    Q3: '',
+    Q4: ''
+  });
+
+  // New state for questions submission
+  const [isQuestionsSubmitted, setIsQuestionsSubmitted] = useState(false);
+
   // New state for popup
   const [popupMessage, setPopupMessage] = useState(null);
   const [popupType, setPopupType] = useState('success');
+
+  // New state for final submission
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   // Show popup with message and type
   const showPopup = (message, type = 'success') => {
@@ -50,6 +64,29 @@ const ExamPaperEvaluation = ({ className }) => {
         {message}
       </div>
     );
+  };
+
+  // Handler for Unit Test Questions
+  const handleUnitTestQuestionChange = (question, value) => {
+    setUnitTestQuestions(prev => ({
+      ...prev,
+      [question]: value
+    }));
+  };
+
+  // New method to handle questions submission
+  const handleQuestionsSubmit = () => {
+    // Validate that all questions are filled
+    const allQuestionsFilled = Object.values(unitTestQuestions).every(q => q.trim() !== '');
+    
+    if (!allQuestionsFilled) {
+      showPopup('Please fill all unit test questions', 'error');
+      return;
+    }
+
+    // If all questions are filled, mark as submitted
+    setIsQuestionsSubmitted(true);
+    showPopup('Unit Test Questions Submitted Successfully!');
   };
 
   // Static Course Outcomes (CO) for demonstration
@@ -107,7 +144,8 @@ const ExamPaperEvaluation = ({ className }) => {
               message: 'Report saved successfully',
               savedData: {
                 subject,
-                totalStudents: evaluationResults.length
+                totalStudents: evaluationResults.length,
+                unitTestQuestions
               }
             });
           }
@@ -147,6 +185,44 @@ const ExamPaperEvaluation = ({ className }) => {
       
       // Show popup for successful search
       showPopup(`Existing report found for ${searchSubject}`);
+    }
+  };
+
+  // New submit handler
+  const handleFinalSubmit = () => {
+    // Validate before submission
+    if (!subject) {
+      showPopup('Please enter a subject before submitting', 'error');
+      return;
+    }
+
+    if (!evaluationResults) {
+      showPopup('Please generate evaluation results first', 'error');
+      return;
+    }
+
+    if (!isQuestionsSubmitted) {
+      showPopup('Please submit unit test questions first', 'error');
+      return;
+    }
+
+    try {
+      // Simulate submission process
+      const submissionData = {
+        subject,
+        evaluationResults,
+        unitTestQuestions,
+        timestamp: new Date().toISOString()
+      };
+
+      // In a real application, you would send this to a backend
+      console.log('Submission Data:', submissionData);
+
+      // Set submission state
+      setIsSubmitted(true);
+      showPopup('Evaluation report submitted successfully!');
+    } catch (error) {
+      showPopup('Submission failed. Please try again.', 'error');
     }
   };
 
@@ -281,6 +357,69 @@ const ExamPaperEvaluation = ({ className }) => {
             >
               Generate Evaluation
             </button>
+
+            {/* Unit Test Questions Input */}
+            <div className="mt-4 space-y-4">
+              {['Q1', 'Q2', 'Q3', 'Q4'].map((question) => (
+                <div key={question}>
+                  <label 
+                    className={`block mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {question}
+                  </label>
+                  <textarea
+                    value={unitTestQuestions[question]}
+                    onChange={(e) => handleUnitTestQuestionChange(question, e.target.value)}
+                    className={`
+                      w-full p-3 rounded-lg border min-h-[100px]
+                      ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600 text-gray-200"
+                          : "bg-white border-gray-300 text-gray-900"
+                      }
+                    `}
+                    placeholder={`Enter ${question} details`}
+                  />
+                </div>
+              ))}
+
+              {/* New Submit Button for Questions */}
+              {!isQuestionsSubmitted && (
+                <button
+                  onClick={handleQuestionsSubmit}
+                  className={`
+                    w-full p-3 rounded-lg transition-all duration-300 mt-4
+                    ${
+                      isDarkMode
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-blue-500 hover:bg-blue-600"
+                    }
+                    text-white font-semibold flex items-center justify-center
+                  `}
+                >
+                  <Send className="mr-2" />
+                  Submit Unit Test Questions
+                </button>
+              )}
+
+              {/* Success Message when Questions are Submitted */}
+              {isQuestionsSubmitted && (
+                <div 
+                  className={`
+                    w-full p-4 rounded-lg text-center font-semibold mt-4
+                    ${
+                      isDarkMode
+                        ? "bg-green-800 text-green-300"
+                        : "bg-green-100 text-green-800"
+                    }
+                  `}
+                >
+                  Unit Test Questions Submitted ✓
+                </div>
+              )}
+            </div>
 
             {evaluationResults && (
               <button
@@ -455,6 +594,59 @@ const ExamPaperEvaluation = ({ className }) => {
           </div>
         </div>
       )}
+
+      {/* Final Submit Section */}
+      <div
+        className={`
+        p-6 rounded-xl shadow-lg mt-6
+        ${
+          isDarkMode
+            ? "bg-gray-800 border-l-4 border-red-600"
+            : "bg-white border-l-4 border-red-500"
+        }
+        ${evaluationResults && isQuestionsSubmitted ? 'block' : 'hidden'}
+      `}
+      >
+        <div className="flex items-center mb-4">
+          <Send
+            className={`mr-3 ${
+              isDarkMode ? "text-red-400" : "text-red-600"
+            }`}
+          />
+          <h2 className="text-xl font-semibold">Final Submission</h2>
+        </div>
+
+        {!isSubmitted ? (
+          <button
+            onClick={handleFinalSubmit}
+            className={`
+              w-full p-4 rounded-lg transition-all duration-300
+              ${
+                isDarkMode
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-red-500 hover:bg-red-600"
+              }
+              text-white font-semibold flex items-center justify-center
+            `}
+          >
+            <Send className="mr-2" />
+            Submit Evaluation Report
+          </button>
+        ) : (
+          <div 
+            className={`
+              w-full p-4 rounded-lg text-center font-semibold
+              ${
+                isDarkMode
+                  ? "bg-green-800 text-green-300"
+                  : "bg-green-100 text-green-800"
+              }
+            `}
+          >
+            Evaluation Report Submitted ✓
+          </div>
+        )}
+      </div>
     </div>
   );
 };
