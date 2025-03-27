@@ -25,6 +25,7 @@ const HomePage = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
+  const [extractedUsername, setExtractedUsername] = useState('');
   const navigate = useNavigate();
   const { isDarkMode, toggleDarkMode } = useContext(ThemeContext);
 
@@ -115,11 +116,25 @@ const HomePage = () => {
       return;
     }
 
+    // Extract username from email (everything before @)
+    const username = formData.email.split('@')[0];
+    setExtractedUsername(username);
+
     // If all validations pass
     if (isLogin) {
-      navigate('/dashboard');
+      // Pass extracted username to context or state management
+      navigate('/dashboard', { 
+        state: { 
+          extractedUsername: username 
+        } 
+      });
     } else {
-      navigate('/dashboard');
+      // Pass extracted username to context or state management
+      navigate('/dashboard', { 
+        state: { 
+          extractedUsername: username 
+        } 
+      });
     }
   };
 
@@ -199,7 +214,7 @@ const HomePage = () => {
             text-2xl font-bold tracking-tight
             ${isDarkMode ? 'text-white' : 'text-black'}
           `}>
-            Academic Outcome Insights
+            COPOlytics
           </h1>
         </div>
         <div className="flex items-center space-x-4">

@@ -1,5 +1,5 @@
-import React, { useContext } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useContext, useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   TrendingUp,
@@ -10,6 +10,9 @@ import {
   Moon,
   Sun,
   User,
+  LogOut,
+  X,
+  Check
 } from "lucide-react";
 import { ThemeContext } from "../App";
 
@@ -22,10 +25,20 @@ export const UserContext = React.createContext({
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isDarkMode, toggleDarkMode } = useContext(ThemeContext);
   
-  // Default to 'Student' if no context is provided
-  const { userName = "Anonymous" } = useContext(UserContext);
+  // State to manage username and logout confirmation
+  const [userName, setUserName] = useState("Anonymous");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  useEffect(() => {
+    // Check if there's a username passed through navigation state
+    const state = location.state;
+    if (state && state.extractedUsername) {
+      setUserName(state.extractedUsername);
+    }
+  }, [location.state]);
 
   const navItems = [
     {
@@ -57,6 +70,16 @@ const Navbar = () => {
     );
   };
 
+  const handleLogout = () => {
+    // Clear any authentication tokens or user data here
+    // For example:
+    // localStorage.removeItem('authToken');
+    // Clear any user-related context or state
+
+    // Redirect to homepage
+    navigate('/');
+  };
+
   return (
     <div
       className={`
@@ -69,6 +92,65 @@ const Navbar = () => {
         }
       `}
     >
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div 
+          className={`
+            fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50
+            ${isDarkMode ? "bg-opacity-70" : "bg-opacity-50"}
+          `}
+        >
+          <div 
+            className={`
+              p-6 rounded-lg shadow-xl w-96 
+              ${isDarkMode 
+                ? "bg-gray-800 text-gray-100" 
+                : "bg-white text-gray-900"
+              }
+            `}
+          >
+            <h2 className="text-xl font-semibold mb-4">Are you sure you want to logout?</h2>
+            <p 
+              className={`
+                mb-6 
+                ${isDarkMode ? "text-gray-300" : "text-gray-600"}
+              `}
+            >
+              You will be redirected to the homepage and will need to log in again to access your account.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className={`
+                  px-4 py-2 rounded-md flex items-center
+                  ${isDarkMode 
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600" 
+                    : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                  }
+                `}
+              >
+                <X className="mr-2" size={18} /> Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+                className={`
+                  px-4 py-2 rounded-md flex items-center
+                  ${isDarkMode 
+                    ? "bg-red-800 text-gray-200 hover:bg-red-700" 
+                    : "bg-red-500 text-white hover:bg-red-600"
+                  }
+                `}
+              >
+                <Check className="mr-2" size={18} /> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Theme Toggle Button - Top Left */}
       <div className="absolute top-4 left-4">
         <button
@@ -141,6 +223,20 @@ const Navbar = () => {
           </Link>
         ))}
       </div>
+
+      {/* Logout Button with Confirmation */}
+      <button 
+        onClick={() => setShowLogoutConfirm(true)}
+        className={`
+          w-full flex items-center justify-center p-3 rounded-lg transition-all duration-300 ease-in-out
+          ${isDarkMode 
+            ? "bg-red-800 text-gray-200 hover:bg-red-700" 
+            : "bg-red-500 text-white hover:bg-red-600"
+          }
+        `}
+      >
+        <LogOut className="mr-2" size={20} /> Logout
+      </button>
     </div>
   );
 };
