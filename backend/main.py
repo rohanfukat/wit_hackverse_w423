@@ -1,9 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from model import course_details
+from model import course_details, user_registration
 from typing import List
 from google import genai
-from db import mapping_collection
+from db import mapping_collection, user_collection
 import os,json
 from dotenv import load_dotenv
 from model import course_details, course_outcome, user_registration, user_login, course_mapping_data
@@ -79,6 +79,54 @@ Output format:[
       print("Raw output:", input_string)
       
     return json_data
+
+
+@app.post("/register")
+async def user_register(user_data : user_registration):
+    result = await user_collection.insert_one(user_data.model_dump())
+    print(f"Document inserted with id: {result.inserted_id}")
+    return {"User Created Successfully "}
+
+@app.post("/login")
+async def user_login(form_data: user_login):
+    # print(form_data)
+    user = await user_collection.find_one({"username":form_data.username})
+    # print(user)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    #  if not user or not verify_password(form_data.password, user["hashed_password"]):
+    #     raise HTTPException(status_code=400, detail="Invalid credentials")
+    
+    if user['password'] != form_data.password:
+        raise HTTPException(status_code=404, detail="Invalid Credentials")
+    
+    return {"User Login Successfully"}
+   
+def convert_mongo_json(data):
+    if isinstance(data, list):
+        return json.loads(json.dumps(data, default=str))  # Convert list of documents
+    elif isinstance(data, dict):
+        return json.loads(json.dumps(data, default=str))  # Convert single document
+    return data
+
+@app.post("/get_mapping")
+async def get_mapping(course_data: course_mapping_data):
+    try:
+        print(course_data.subject)
+        # Fetch all documents with the given subject
+        result = mapping_collection.find({"subject": course_data.subject})
+        documents = await result.to_list(length=None)  # Retrieve all documents
+
+        if not documents:
+            raise HTTPException(status_code=404, detail="No matching documents found.")
+
+        # Convert ObjectId to string
+        converted_documents = convert_mongo_json(documents)
+
+        return {"data": converted_documents}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving mapping: {str(e)}")
 
 @app.post("/save_co-po_mapping")
 async def register(course_mappings: List[course_outcome]):
