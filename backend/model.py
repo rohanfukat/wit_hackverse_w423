@@ -7,10 +7,10 @@ class course_details(BaseModel):
     CO_ID : str
     sem : str
     subject : str
-    CO_number : str
-    CO_details: str
-    Description: str
-
+   # CO_data : List[Dict[str,Union[str,int]]]
+    CO_data : List[str]
+    
+    
 # class course_outcome(BaseModel):
 #     CO_number: str
 #     CO_Objective: str

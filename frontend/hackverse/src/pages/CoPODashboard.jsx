@@ -6,13 +6,13 @@ const CoPODashboard = ({ className }) => {
   const { isDarkMode } = useContext(ThemeContext);
   
   // State for course details
-  const [courseName, setCourseName] = useState('');
-  const [courseId, setCourseId] = useState('');
-  const [semester, setSemester] = useState('');
-  const [subject, setSubject] = useState('');
+  const [CO_name, setCO_name] = useState('');
+  const [CO_ID, setCO_ID] = useState('');
+  const [sem, setsem] = useState('');
+  const [subject, setsubject] = useState('');
   
-  // State for COs
-  const [cos, setCos] = useState([{ id: 1, description: '' }]);
+  // State for CO_number
+  const [CO_number, setCO_number] = useState([{ id: 1, description: '' }]);
   
   // State for tracking workflow stages
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -51,35 +51,68 @@ const CoPODashboard = ({ className }) => {
 
   // Add new CO
   const addCO = () => {
-    const newCOId = cos.length + 1;
-    setCos([...cos, { id: newCOId, description: '' }]);
+    const newCOId = CO_number.length + 1;
+    setCO_number([...CO_number, { id: newCOId, description: '' }]);
   };
 
   // Update CO description
   const updateCODescription = (id, description) => {
-    const updatedCos = cos.map(co => 
+    const updatedCO_number = CO_number.map(co => 
       co.id === id ? { ...co, description } : co
     );
-    setCos(updatedCos);
+    setCO_number(updatedCO_number);
   };
 
-  // Handle submission
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Basic validation
-    if (!courseName || !courseId || !semester || !subject) {
+    if (!CO_name || !CO_ID || !sem || !subject) {
       alert('Please fill in all course details');
       return;
     }
-
-    // Validate COs
-    if (cos.some(co => !co.description.trim())) {
-      alert('Please fill in descriptions for all COs');
+  
+    // Validate CO_number
+    if (CO_number.some(co => !co.description.trim())) {
+      alert('Please fill in descriptions for all CO_number');
       return;
     }
-
-    setIsSubmitted(true);
+  
+    // Prepare the data to send to the backend
+    const CO_data = CO_number.map(co => co.description.trim()); // Strip extra spaces
+  
+    const data = {
+      CO_name,
+      CO_ID,
+      sem,
+      subject,
+      CO_data
+    };
+  
+    console.log("Sending data:", data); // Log the data for debugging
+  
+    try {
+      const response = await fetch('http://127.0.0.1:8000/course_data', {
+        method: 'POST', // HTTP method
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+  
+      if (response.ok) {
+        alert('Data submitted successfully!');
+        setIsSubmitted(true);
+      } else {
+        alert('Error submitting data');
+        const errorData = await response.json();
+        console.error('Error details:', errorData); // Log error details for debugging
+      }
+    } catch (error) {
+      console.error('Error submitting data:', error);
+      alert('Error submitting data');
+    }
   };
-
+  
+  
   // Handle changes to PO mapping
   const handleMakeChanges = () => {
     // Validation to ensure all fields are filled
@@ -170,23 +203,23 @@ const CoPODashboard = ({ className }) => {
               {[
                 { 
                   label: "Course Name", 
-                  value: courseName, 
-                  setter: setCourseName 
+                  value: CO_name, 
+                  setter: setCO_name 
                 },
                 { 
                   label: "Course ID", 
-                  value: courseId, 
-                  setter: setCourseId 
+                  value: CO_ID, 
+                  setter: setCO_ID 
                 },
                 { 
-                  label: "Semester", 
-                  value: semester, 
-                  setter: setSemester 
+                  label: "sem", 
+                  value: sem, 
+                  setter: setsem 
                 },
                 { 
-                  label: "Subject", 
+                  label: "subject", 
                   value: subject, 
-                  setter: setSubject 
+                  setter: setsubject 
                 }
               ].map(({ label, value, setter }) => (
                 <input
@@ -231,7 +264,7 @@ const CoPODashboard = ({ className }) => {
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
               />
-              <h2 className="text-xl font-semibold">Course Outcomes (COs)</h2>
+              <h2 className="text-xl font-semibold">Course Outcomes (CO_number)</h2>
               <button 
                 onClick={addCO}
                 className={`
@@ -248,7 +281,7 @@ const CoPODashboard = ({ className }) => {
             </div>
             
             <div className="space-y-4">
-              {cos.map((co) => (
+              {CO_number.map((co) => (
                 <div
                   key={co.id}
                   className={`
