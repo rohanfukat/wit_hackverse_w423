@@ -9,7 +9,7 @@ import {
 import Navbar from "./components/Navbar";
 import CoPODashboard from "./pages/CoPODashboard";
 import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
+import AddSubs from "./pages/AddSubs";
 import CoPOMapping from "./pages/CoPOMapping";
 import CoPOAttainment from "./pages/CoPOAttainment";
 import ExamPaperEvaluation from "./pages/ExamPaperEvaluation";
@@ -57,7 +57,7 @@ function App() {
   const ThemedCoPOAttainment = withTheme(CoPOAttainment);
   const ThemedAnalytics = withTheme(Analytics);
   const ThemedExamPaperEvaluation = withTheme(ExamPaperEvaluation);
-  const ThemedSettings = withTheme(Settings);  
+  const ThemedAddSubs = withTheme(AddSubs);  
   const ThemedHomePage = withTheme(HomePage);
 
   return (
@@ -65,6 +65,8 @@ function App() {
       <Router>
         <Routes>
           {/* Homepage will be fullscreen without Navbar */}
+          <Route path="/" element={<Navigate to="/homepage" replace />} />
+          
           <Route path="/homepage" element={<ThemedHomePage />} />
           
           {/* Other routes will have Navbar */}
@@ -75,7 +77,6 @@ function App() {
                 <Navbar />
                 <main className={`w-4/5 ml-auto`}>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<ThemedCoPODashboard />} />
                     <Route path="/co-po-mapping" element={<ThemedCoPOMapping />} />
                     <Route
@@ -87,7 +88,7 @@ function App() {
                       path="/exam-paper-evaluation"
                       element={<ThemedExamPaperEvaluation />}
                     />
-                    <Route path="/settings" element={<ThemedSettings />} />
+                    <Route path="/addsubs" element={<ThemedAddSubs />} />
                   </Routes>
                 </main>
               </div>

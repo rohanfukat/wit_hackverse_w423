@@ -3,18 +3,29 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Home,
   TrendingUp,
-  Settings,
+  BookPlus,
   Navigation,
   ClipboardList,
   FileSpreadsheet,
   Moon,
   Sun,
+  User,
 } from "lucide-react";
 import { ThemeContext } from "../App";
+
+// Create a UserContext (you can expand this later)
+export const UserContext = React.createContext({
+  userName: "Anonymous",
+  userRole: "User",
+  department: "Computer Science"
+});
 
 const Navbar = () => {
   const location = useLocation();
   const { isDarkMode, toggleDarkMode } = useContext(ThemeContext);
+  
+  // Default to 'Student' if no context is provided
+  const { userName = "Anonymous" } = useContext(UserContext);
 
   const navItems = [
     {
@@ -23,16 +34,6 @@ const Navbar = () => {
       icon: <Home />,
       alternateIcons: ["/", "/dashboard"],
     },
-    // {
-    //   name: "Co-Po Mapping",
-    //   path: "/co-po-mapping",
-    //   icon: <Navigation />,
-    // },
-    // {
-    //   name: "Co-Po Attainment",
-    //   path: "/co-po-attainment",
-    //   icon: <ClipboardList />,
-    // },
     {
       name: "Analytics",
       path: "/analytics",
@@ -44,9 +45,9 @@ const Navbar = () => {
       icon: <FileSpreadsheet />,
     },
     {
-      name: "Settings",
-      path: "/settings",
-      icon: <Settings />,
+      name: "Add Subjects",
+      path: "/addsubs",
+      icon: <BookPlus />,
     },
   ];
 
@@ -90,22 +91,29 @@ const Navbar = () => {
       <div className="flex flex-col items-center mb-8">
         <div
           className={`
-            w-32 h-32 rounded-full overflow-hidden mb-4 border-4
-            ${isDarkMode ? "border-green-600" : "border-green-500"}
+            w-32 h-32 rounded-full overflow-hidden mb-4 border-4 flex items-center justify-center
+            ${isDarkMode 
+              ? "border-green-600 bg-gray-700" 
+              : "border-green-500 bg-gray-100"
+            }
           `}
         >
-          <img
-            src="/api/placeholder/128/128"
-            alt="User Profile"
-            className="w-full h-full object-cover"
+          <User 
+            size={80} 
+            className={`
+              ${isDarkMode 
+                ? "text-gray-400" 
+                : "text-gray-500"
+              }
+            `} 
           />
         </div>
         <h3
-          className={`text-xl font-semibold ${
+          className={`text-xl font-semibold text-center w-full truncate ${
             isDarkMode ? "text-gray-100" : "text-gray-900"
           }`}
         >
-          John Doe
+          {userName}
         </h3>
       </div>
 
