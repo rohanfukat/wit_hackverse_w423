@@ -7,6 +7,7 @@ import {
   Navigation,
   ClipboardList,
   FileSpreadsheet,
+  BarChart2,  // Added for Attainment icon
   Moon,
   Sun,
   User,
@@ -56,6 +57,11 @@ const Navbar = () => {
       name: "Exam Paper Evaluation",
       path: "/exam-paper-evaluation",
       icon: <FileSpreadsheet />,
+    },
+    {
+      name: "Attainment",  // New navigation item
+      path: "/attainment",
+      icon: <BarChart2 />,
     },
     {
       name: "Add Subjects",
@@ -199,7 +205,6 @@ const Navbar = () => {
         </h3>
       </div>
 
-      {/* Navigation Buttons */}
       <div className="flex flex-col w-full gap-4 mb-8">
         {navItems.map((item) => (
           <Link

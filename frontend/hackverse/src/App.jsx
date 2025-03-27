@@ -14,6 +14,7 @@ import CoPOMapping from "./pages/CoPOMapping";
 import CoPOAttainment from "./pages/CoPOAttainment";
 import ExamPaperEvaluation from "./pages/ExamPaperEvaluation";
 import HomePage from './pages/HomePage';
+import Attainment from './pages/Attainment'
 
 // Create a context for dark mode
 export const ThemeContext = createContext({
@@ -59,6 +60,7 @@ function App() {
   const ThemedExamPaperEvaluation = withTheme(ExamPaperEvaluation);
   const ThemedAddSubs = withTheme(AddSubs);  
   const ThemedHomePage = withTheme(HomePage);
+  const ThemedAttainment = withTheme(Attainment);
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
@@ -89,6 +91,7 @@ function App() {
                       element={<ThemedExamPaperEvaluation />}
                     />
                     <Route path="/addsubs" element={<ThemedAddSubs />} />
+                    <Route path="/attainment" element={<Attainment />} />
                   </Routes>
                 </main>
               </div>
